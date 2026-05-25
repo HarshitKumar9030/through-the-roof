@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fredoka } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const fredoka = Fredoka({
@@ -22,7 +23,10 @@ export default function RootLayout({
       lang="en"
       className={`${fredoka.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-fredoka bg-[#FDFD96] text-[#6D28D9]">{children}</body>
+      <body className="min-h-full flex flex-col font-fredoka bg-[#FDFD96] text-[#6D28D9]">
+        {children}
+        <Toaster position="top-center" richColors theme="light" />
+      </body>
     </html>
   );
 }

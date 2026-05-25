@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import { RoomInfo } from "../types/game";
 
-export default function PlayingScreen({ onScore }: { onScore: (score: number) => void }) {
+type DeviceMotionPermissionState = "granted" | "denied";
+type DeviceMotionEventWithPermission = typeof DeviceMotionEvent & {
+  requestPermission?: () => Promise<DeviceMotionPermissionState>;
+};
+
+export default function PlayingScreen({ onScore, room, onForceFinish }: { onScore: (score: number) => void, room: RoomInfo, onForceFinish: () => void }) {
   const [throwHeight, setThrowHeight] = useState<number | null>(null);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const isMeasuring = permissionGranted && throwHeight === null;
@@ -10,11 +16,13 @@ export default function PlayingScreen({ onScore }: { onScore: (score: number) =>
   const hasSentScoreRef = useRef<boolean>(false);
 
   const requestPermission = async () => {
-    if (typeof (DeviceMotionEvent as any).requestPermission === "function") {
+    const deviceMotion = DeviceMotionEvent as DeviceMotionEventWithPermission;
+
+    if (typeof deviceMotion.requestPermission === "function") {
       try {
-        const state = await (DeviceMotionEvent as any).requestPermission();
+        const state = await deviceMotion.requestPermission();
         setPermissionGranted(state === "granted");
-      } catch (e) {
+      } catch {
         setPermissionGranted(false);
       }
     } else {
@@ -52,33 +60,50 @@ export default function PlayingScreen({ onScore }: { onScore: (score: number) =>
     return () => window.removeEventListener("devicemotion", handleMotion);
   }, [isMeasuring, onScore]);
 
+  const players = Object.entries(room.players);
+  const thrownCount = players.filter(([, player]) => player.score !== null).length;
+
   return (
-    <div className="flex flex-col items-center justify-center gap-10 bg-[#C7CEEA] p-12 rounded-[2rem] w-full max-w-sm text-center shadow-[5px_5px_0px_0px_rgba(109,40,217)] text-[#6D28D9]">
-      <h2 className="text-5xl font-black uppercase tracking-wider">TOSS IT!</h2>
+    <div className="flex flex-col items-center justify-center gap-8 bg-[#C7CEEA] p-10 rounded-[2rem] w-full max-w-sm text-center shadow-[5px_5px_0px_0px_rgba(109,40,217)] text-[#6D28D9] z-10">
+      <h2 className="text-6xl font-black uppercase tracking-widest drop-shadow-sm">TOSS IT!</h2>
       
       {!permissionGranted && (
         <button onClick={requestPermission} 
-                className="bg-[#FFDFD3] p-5 rounded-2xl text-2xl font-black transition-all active:translate-y-[5px] active:translate-x-[5px] active:shadow-[0px_0px_0px_0px_rgba(109,40,217)] shadow-[5px_5px_0px_0px_rgba(109,40,217)] text-[#6D28D9]">
+                className="bg-[#FFDFD3] p-5 w-full rounded-2xl text-2xl font-black transition-all active:translate-y-[5px] active:translate-x-[5px] active:shadow-none shadow-[5px_5px_0px_0px_rgba(109,40,217)] text-[#6D28D9]">
           GRANT SENSORS
         </button>
       )}
 
       {permissionGranted && throwHeight === null && (
-        <div className="animate-bounce mt-6">
-          <p className="text-3xl font-bold bg-white p-4 rounded-xl shadow-[5px_5px_0px_0px_rgba(109,40,217)]">Ready to throw!</p>
-          <p className="text-xl opacity-70 mt-6">(Don't smash the ceiling)</p>
+        <div className="animate-bounce mt-4 w-full">
+          <p className="text-3xl font-bold bg-white p-5 rounded-2xl shadow-[5px_5px_0px_0px_rgba(109,40,217)]">Ready to throw!</p>
+          <p className="text-xl font-bold opacity-70 mt-6">(Catch it carefully)</p>
         </div>
       )}
 
       {throwHeight !== null && (
-        <div className="flex flex-col items-center mt-6">
-          <p className="text-3xl font-bold mb-6">Nice Height!</p>
-          <div className="bg-white p-8 rounded-[2rem] shadow-[5px_5px_0px_0px_rgba(109,40,217)] mb-8 transform -rotate-2">
-            <p className="text-6xl font-black">{throwHeight.toFixed(2)}m</p>
+        <div className="flex flex-col items-center w-full">
+          <div className="bg-white p-6 rounded-[2rem] shadow-[5px_5px_0px_0px_rgba(109,40,217)] w-full mb-6 transform -rotate-1">
+             <p className="text-2xl font-black mb-2 opacity-50">SCORE</p>
+             <p className="text-6xl font-black">{throwHeight.toFixed(2)}m</p>
           </div>
-          <p className="text-xl font-bold animate-pulse text-[#6D28D9]">Waiting for others...</p>
         </div>
       )}
+      
+      <div className="bg-white/50 w-full p-6 rounded-[2rem] flex flex-col gap-4 mt-2">
+        <h3 className="text-xl font-bold uppercase tracking-wider">Waiting ({thrownCount}/{players.length})</h3>
+        <ul className="flex flex-col gap-2 max-h-32 overflow-y-auto">
+          {players.map(([name, p]) => (
+            <li key={name} className="flex justify-between items-center text-lg font-bold bg-white p-3 rounded-xl shadow-[2px_2px_0px_0px_rgba(109,40,217)]">
+              <span className="truncate">{name}</span>
+              <span>{p.score !== null ? '✅' : '⏳'}</span>
+            </li>
+          ))}
+        </ul>
+        <button onClick={onForceFinish} className="mt-2 text-sm font-bold opacity-60 hover:opacity-100 uppercase underline transition-opacity">
+          Force End Round
+        </button>
+      </div>
     </div>
   );
 }
